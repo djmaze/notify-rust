@@ -2,7 +2,9 @@
 
 #[cfg(all(feature = "images", unix, not(target_os = "macos")))]
 use crate::image::ImageError;
-use std::{fmt, num};
+#[cfg(all(feature = "notify_send", unix, not(target_os = "macos")))]
+use std::io;
+use std::{fmt, num, string::FromUtf8Error};
 /// Convenient wrapper around `std::Result`.
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -28,10 +30,14 @@ pub enum ErrorKind {
     #[cfg(all(feature = "zbus", unix, not(target_os = "macos")))]
     Zbus(zbus::Error),
 
+    #[cfg(all(feature = "notify_send", unix, not(target_os = "macos")))]
+    IOError(io::Error),
+
     #[cfg(target_os = "macos")]
     MacNotificationSys(mac_notification_sys::error::Error),
 
     Parse(num::ParseIntError),
+    ParseString(FromUtf8Error),
 
     SpecVersion(String),
 
@@ -52,10 +58,14 @@ impl fmt::Display for Error {
             #[cfg(all(feature = "zbus", unix, not(target_os = "macos")))]
             ErrorKind::Zbus(ref e) => write!(f, "{}", e),
 
+            #[cfg(all(feature = "notify_send", unix, not(target_os = "macos")))]
+            ErrorKind::IOError(ref e) => write!(f, "{}", e),
+
             #[cfg(target_os = "macos")]
             ErrorKind::MacNotificationSys(ref e) => write!(f, "{}", e),
 
             ErrorKind::Parse(ref e) => write!(f, "Parsing Error: {}", e),
+            ErrorKind::ParseString(ref e) => write!(f, "Parsing Error: {}", e),
             ErrorKind::Conversion(ref e) => write!(f, "Conversion Error: {}", e),
             ErrorKind::SpecVersion(ref e) | ErrorKind::Msg(ref e) => write!(f, "{}", e),
             #[cfg(all(feature = "images", unix, not(target_os = "macos")))]
@@ -96,6 +106,15 @@ impl From<zbus::Error> for Error {
     }
 }
 
+#[cfg(all(feature = "notify_send", unix, not(target_os = "macos")))]
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Error {
+        Error {
+            kind: ErrorKind::IOError(e),
+        }
+    }
+}
+
 #[cfg(target_os = "macos")]
 impl From<mac_notification_sys::error::Error> for Error {
     fn from(e: mac_notification_sys::error::Error) -> Error {
@@ -118,6 +137,14 @@ impl From<num::ParseIntError> for Error {
     fn from(e: num::ParseIntError) -> Error {
         Error {
             kind: ErrorKind::Parse(e),
+        }
+    }
+}
+
+impl From<FromUtf8Error> for Error {
+    fn from(e: FromUtf8Error) -> Error {
+        Error {
+            kind: ErrorKind::ParseString(e),
         }
     }
 }

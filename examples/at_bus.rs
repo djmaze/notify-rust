@@ -1,9 +1,9 @@
-#[cfg(any(target_os = "windows", target_os = "macos"))]
+#[cfg(any(target_os = "windows", target_os = "macos", feature = "notify_send"), )]
 fn main() {
     println!("this is an xdg only feature")
 }
 
-#[cfg(all(unix, not(target_os = "macos",)))]
+#[cfg(all(unix, not(target_os = "macos",), not(feature = "notify_send")))]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use notify_rust::Notification;
     std::env::set_var(

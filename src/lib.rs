@@ -173,7 +173,7 @@ mod macos;
 #[cfg(target_os = "windows")]
 mod windows;
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(all(unix, not(target_os = "macos"), not(feature = "notify_send")))]
 mod xdg;
 
 #[cfg(all(feature = "images", unix, not(target_os = "macos")))]
@@ -187,6 +187,7 @@ pub use macos::NotificationHandle;
 
 #[cfg(all(
     any(feature = "dbus", feature = "zbus"),
+    not(feature = "notify_send"),
     unix,
     not(target_os = "macos")
 ))]
@@ -194,6 +195,9 @@ pub use crate::xdg::{
     dbus_stack, get_capabilities, get_server_information, handle_action, ActionResponse,
     CloseHandler, CloseReason, DbusStack, NotificationHandle,
 };
+
+#[cfg(all(unix, feature = "notify_send", not(target_os = "macos")))]
+mod notify_send;
 
 // #[cfg(all(feature = "server", unix, not(target_os = "macos")))]
 // pub use crate::xdg::stop_server;

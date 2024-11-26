@@ -45,6 +45,7 @@ z = ["zbus", "serde", "async"]
 async = []
 debug_namespace = []
 images = ["image", "lazy_static"]
+notify_send = []
 
 [dev-dependencies]
 color-backtrace = "0.6" # wait for MSVR 1.70 to update

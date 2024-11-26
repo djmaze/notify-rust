@@ -2,8 +2,13 @@
 use crate::{
     hints::{CustomHintType, Hint},
     urgency::Urgency,
-    xdg,
 };
+
+#[cfg(all(unix, not(target_os = "macos"), not(feature = "notify_send")))]
+use crate::xdg;
+
+#[cfg(all(unix, not(target_os = "macos"), feature = "notify_send"))]
+use crate::notify_send;
 
 #[cfg(all(unix, not(target_os = "macos"), feature = "images"))]
 use crate::image::Image;
@@ -88,7 +93,7 @@ pub struct Notification {
     #[cfg(target_os = "windows")]
     pub(crate) app_id: Option<String>,
 
-    #[cfg(all(unix, not(target_os = "macos")))]
+    #[cfg(all(unix, all(not(target_os = "macos")), not(feature = "notify_send")))]
     pub(crate) bus: xdg::NotificationBus,
 
     /// Lifetime of the Notification in ms. Often not respected by server, sorry.
@@ -109,7 +114,7 @@ impl Notification {
     }
 
     /// This is for testing purposes only and will not work with actual implementations.
-    #[cfg(all(unix, not(target_os = "macos")))]
+    #[cfg(all(unix, not(target_os = "macos"), not(feature = "notify_send")))]
     #[doc(hidden)]
     #[deprecated(note = "this is a test only feature")]
     pub fn at_bus(sub_bus: &str) -> Notification {
@@ -409,25 +414,42 @@ impl Notification {
     /// Sends Notification to D-Bus.
     ///
     /// Returns a handle to a notification
-    #[cfg(all(unix, not(target_os = "macos")))]
+    #[cfg(all(unix, not(any(feature = "notify_send", target_os = "macos"))))]
     pub fn show(&self) -> Result<xdg::NotificationHandle> {
         xdg::show_notification(self)
     }
 
-    /// Sends Notification to D-Bus.
+    /// Sends Notification using notify-send.
     ///
     /// Returns a handle to a notification
-    #[cfg(all(unix, not(target_os = "macos")))]
-    #[cfg(all(feature = "async", feature = "zbus"))]
-    pub async fn show_async(&self) -> Result<xdg::NotificationHandle> {
-        xdg::show_notification_async(self).await
+    #[cfg(all(unix, feature = "notify_send", not(target_os = "macos")))]
+    pub fn show(&self) -> Result<notify_send::NotificationHandle> {
+        notify_send::show_notification(self)
     }
 
     /// Sends Notification to D-Bus.
     ///
     /// Returns a handle to a notification
     #[cfg(all(unix, not(target_os = "macos")))]
-    #[cfg(feature = "async")]
+    #[cfg(all(feature = "async", feature = "zbus", not(feature = "notify_send")))]
+    pub async fn show_async(&self) -> Result<xdg::NotificationHandle> {
+        xdg::show_notification_async(self).await
+    }
+
+    /// Sends Notification using notify-send.
+    ///
+    /// Returns a handle to a notification
+    #[cfg(all(unix, not(target_os = "macos")))]
+    #[cfg(all(feature = "async", feature = "notify_send"))]
+    pub async fn show_async(&self) -> Result<notify_send::NotificationHandle> {
+        notify_send::show_notification_async(self).await
+    }
+
+    /// Sends Notification to D-Bus.
+    ///
+    /// Returns a handle to a notification
+    #[cfg(all(unix, not(target_os = "macos")))]
+    #[cfg(all(feature = "async", not(feature = "notify_send")))]
     // #[cfg(test)]
     pub async fn show_async_at_bus(&self, sub_bus: &str) -> Result<xdg::NotificationHandle> {
         let bus = xdg::NotificationBus::custom(sub_bus).ok_or("invalid subpath")?;
@@ -453,7 +475,7 @@ impl Notification {
     }
 
     /// Wraps [`Notification::show()`] but prints notification to stdout.
-    #[cfg(all(unix, not(target_os = "macos")))]
+    #[cfg(all(unix, not(target_os = "macos"), not(feature = "notify_send")))]
     #[deprecated = "this was never meant to be public API"]
     pub fn show_debug(&mut self) -> Result<xdg::NotificationHandle> {
         println!(
@@ -469,7 +491,7 @@ impl Notification {
 }
 
 impl Default for Notification {
-    #[cfg(all(unix, not(target_os = "macos")))]
+    #[cfg(all(unix, not(target_os = "macos"), not(feature = "notify_send")))]
     fn default() -> Notification {
         Notification {
             appname: exe_name(),
@@ -482,6 +504,22 @@ impl Default for Notification {
             actions: Vec::new(),
             timeout: Timeout::Default,
             bus: Default::default(),
+            id: None,
+        }
+    }
+
+    #[cfg(all(unix, not(target_os = "macos"), feature = "notify_send"))]
+    fn default() -> Notification {
+        Notification {
+            appname: exe_name(),
+            summary: String::new(),
+            subtitle: None,
+            body: String::new(),
+            icon: String::new(),
+            hints: HashSet::new(),
+            hints_unique: HashMap::new(),
+            actions: Vec::new(),
+            timeout: Timeout::Default,
             id: None,
         }
     }
